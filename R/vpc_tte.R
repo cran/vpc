@@ -9,7 +9,7 @@
 #' @param bins either "density", "time", or "data", or a numeric vector specifying the bin separators.
 #' @param n_bins number of bins
 #' @param obs_cols observation dataset column names (list elements: "dv", "idv", "id", "pred")
-#' @param sim_cols simulation dataset column names (list elements: "dv", "idv", "id", "pred")
+#' @param sim_cols simulation dataset column names (list elements: "dv", "idv", "id", "pred", "sim")
 #' @param software name of software platform using (e.g. nonmem, phoenix)
 #' @param show what to show in VPC (obs_ci, obs_median, sim_median, sim_median_ci)
 #' @param rtte repeated time-to-event data? Default is FALSE (treat as single-event TTE)
@@ -18,11 +18,12 @@
 #' @param events numeric vector describing which events to show a VPC for when repeated TTE data, e.g. c(1:4). Default is NULL, which shows all events.
 #' @param reverse_prob reverse the probability scale (i.e. plot 1-probability)
 #' @param stratify character vector of stratification variables. Only 1 or 2 stratification variables can be supplied. 
+#' @param stratify_color character vector of stratification variables. Only 1 stratification variable can be supplied, cannot be used in conjunction with `stratify`. 
 #' @param ci confidence interval to plot. Default is (0.05, 0.95)
 #' @param plot Boolean indicating whether to plot the ggplot2 object after creation. Default is FALSE.
 #' @param as_percentage Show y-scale from 0-100 percent? TRUE by default, if FALSE then scale from 0-1.
-#' @param xlab ylab as numeric vector of size 2
-#' @param ylab ylab as numeric vector of size 2
+#' @param xlab label for x-axis
+#' @param ylab label for y-axis
 #' @param title title
 #' @param smooth "smooth" the VPC (connect bin midpoints) or show bins as rectangular boxes. Default is TRUE.
 #' @param vpc_theme theme to be used in VPC. Expects list of class vpc_theme created with function vpc_theme()
@@ -62,10 +63,11 @@ vpc_tte <- function(sim = NULL,
                     kmmc = NULL,
                     reverse_prob = FALSE,
                     stratify = NULL,
+                    stratify_color = NULL,
                     ci = c(0.05, 0.95),
                     plot = FALSE,
-                    xlab = NULL,
-                    ylab = NULL,
+                    xlab = "Time",
+                    ylab = "Survival (%)",
                     show = NULL,
                     as_percentage = TRUE,
                     title = NULL,
@@ -78,6 +80,9 @@ vpc_tte <- function(sim = NULL,
   if(is.null(obs) & is.null(sim)) {
     stop("At least a simulation or an observation dataset are required to create a plot!")
   }
+  if(!is.null(bins) && bins != FALSE) {
+    message("Binning is not recommended for `vpc_tte()`, plot might not show correctly!")
+  }
   if(!is.null(kmmc)) {
     if(!kmmc %in% names(obs)) {
       stop(paste0("Specified covariate ", kmmc, " not found among column names in observed data."))
@@ -88,12 +93,13 @@ vpc_tte <- function(sim = NULL,
       stop(paste0("Specified covariate ", kmmc, " not found among column names in simulated data."))
     }
   }
+  message("Initializing.")
   if(!is.null(psn_folder)) {
     if(!is.null(obs)) {
-      obs <- read_table_nm(paste0(psn_folder, "/m1/", dir(paste0(psn_folder, "/m1"), pattern="original.npctab")[1]))
+      obs <- vpc::read_table_nm(paste0(psn_folder, "/m1/", dir(paste0(psn_folder, "/m1"), pattern="original.npctab")[1]))
     }
     if(!is.null(sim)) {
-      sim <- read_table_nm(paste0(psn_folder, "/m1/", dir(paste0(psn_folder, "/m1"), pattern="simulation.1.npctab")[1]))
+      sim <- vpc::read_table_nm(paste0(psn_folder, "/m1/", dir(paste0(psn_folder, "/m1"), pattern="simulation.1.npctab")[1]))
     }
     software = "nonmem"
   }
@@ -108,21 +114,30 @@ vpc_tte <- function(sim = NULL,
   }
 
   ## define what to show in plot
-  show <- replace_list_elements(show_default, show)
+  show <- vpc::replace_list_elements(show_default_tte, show)
 
   ## checking whether stratification columns are available
-  if(!is.null(stratify)) {
+  stratify_pars <- NULL
+  if(!is.null(stratify)) stratify_pars <- stratify
+  if(!is.null(stratify_color)) {
+    if(!is.null(stratify)) stop("Sorry, stratification using both facets and color is currently not supported, use either `stratify` or `stratify_color`.")
+    if(length(stratify_color) != 1) {
+      stop("Sorry, please specify only a single stratification variable for `stratify_color`.")      
+    }
+    stratify_pars <- stratify_color
+  }
+  if(!is.null(stratify_pars)) {
     if(!is.null(obs)) {
-      check_stratification_columns_available(obs, stratify, "observation")
+      check_stratification_columns_available(obs, stratify_pars, "observation")
     }
     if(!is.null(sim)) {
-      check_stratification_columns_available(sim, stratify, "simulation")
+      check_stratification_columns_available(sim, stratify_pars, "simulation")
     }
   }
 
   ## redefine strat column in case of "strat"
-  if(!is.null(stratify) && !is.null(obs)) {
-    if(stratify[1] == "strat") {
+  if(!is.null(stratify_pars) && !is.null(obs)) {
+    if(stratify_pars[1] == "strat") {
       if(!is.null(obs)) {
         obs$strat_orig = obs$strat
       } else if (!is.null(sim)){
@@ -152,15 +167,15 @@ vpc_tte <- function(sim = NULL,
   }
 
   ## stratification
-  stratify_original <- stratify
-  if(!is.null(stratify)) {
+  stratify_original <- stratify_pars
+  if(!is.null(stratify_pars)) {
     if(rtte) {
-      if (length(stratify) > 1) {
+      if (length(stratify_pars) > 1) {
         stop ("Sorry, with repeated time-to-event data, stratification on more than 1 variables is currently not supported!")
         invisible()
       }
     } else {
-      if (length(stratify) > 2) {
+      if (length(stratify_pars) > 2) {
         stop ("Sorry, stratification on more than 2 variables is currently not supported!")
         invisible()
       }
@@ -200,14 +215,18 @@ vpc_tte <- function(sim = NULL,
         dplyr::mutate(rtte = 1:length(dv))
 #       obs %>% dplyr::group_by(id) %>% dplyr::mutate(rtte = cumsum(dv != 0))
 #       obs[obs$dv == 0,]$rtte <- obs[obs$dv == 0,]$rtte + 1 # these censored points actually "belong" to the next rtte strata
-      stratify <- c(stratify, "rtte")
+      stratify_pars <- c(stratify_pars, "rtte")
     } else {
-      obs <- obs[!duplicated(obs$id),]
+      obs <- obs %>%
+        dplyr::group_by_("id") %>%
+        dplyr::mutate(last_obs = 1*(1:length(time) == length(time)), repeat_obs = 1*(cumsum(dv) > 1)) %>%
+        dplyr::filter(dv == 1 | last_obs == 1) %>%
+        dplyr::filter(!duplicated(id))
       obs$rtte <- 1
     }
 
     # add stratification column and comput KM curve for observations
-    obs <- add_stratification(obs, stratify)
+    obs <- add_stratification(obs, stratify_pars)
     if(!is.null(kmmc) && kmmc %in% names(obs)) {
       obs_km <- compute_kmmc(obs, strat = "strat", reverse_prob = reverse_prob, kmmc=kmmc)
     } else {
@@ -227,6 +246,7 @@ vpc_tte <- function(sim = NULL,
     msg("Tip: with KMMC-type plots, binning of simulated data is recommended. See documentation for the 'bins' argument for more information.", msg)
   }
 
+  all_dat <- c()
   if(!is.null(sim)) {
     # format sim data and compute KM curve CI for simulations
     if (all(c(cols$sim$idv, cols$sim$id, cols$sim$dv) %in% names(sim))) {
@@ -259,7 +279,7 @@ vpc_tte <- function(sim = NULL,
       sim[sim$cens == 1,]$dv <- 0
     }
     # add sim index number
-    sim$sim <- add_sim_index_number(sim, id = cols$sim$id)
+    sim$sim <- add_sim_index_number(sim, id = cols$sim$id, sim_label = cols$sim$sim)
 
     # set last_observation and repeat_obs per sim&id
     sim <- sim %>%
@@ -282,9 +302,9 @@ vpc_tte <- function(sim = NULL,
       sim <- sim[!duplicated(sim$sim_id),]
     }
 
-    n_sim <- length(unique(sim$sim))
-    all <- c()
     tmp_bins <- unique(c(0, sort(unique(sim$time)), max(sim$time)))
+    n_sim <- length(unique(sim$sim))
+    all_dat <- c()
     if(!(class(bins) == "logical" && bins == FALSE)) {
       if(class(bins) == "logical" && bins == TRUE) {
         bins <- "time"
@@ -303,17 +323,21 @@ vpc_tte <- function(sim = NULL,
         tmp_bins <- unique(c(0, bins, max(obs$time)))
       }
     }
+    message("Calculating simulation stats.")
+    pb <- utils::txtProgressBar(min = 1, max = n_sim)
     for (i in 1:n_sim) {
+      utils::setTxtProgressBar(pb, i)
       tmp <- sim %>% dplyr::filter(sim == i)
       tmp2 <- add_stratification(tmp %>%
-                                 dplyr::arrange_("id", "time"), stratify)
+                                 dplyr::arrange_("id", "time"), stratify_pars)
       if(!is.null(kmmc) && kmmc %in% names(obs)) {
         tmp3 <- compute_kmmc(tmp2, strat = "strat", reverse_prob = reverse_prob, kmmc = kmmc)
       } else {
         tmp3 <- compute_kaplan(tmp2, strat = "strat", reverse_prob = reverse_prob)
       }
       tmp3$time_strat <- paste0(tmp3$time, "_", tmp3$strat)
-      tmp4 <- expand.grid(time = c(0, unique(sim$t)), surv=NA, lower=NA, upper=NA, strat=unique(tmp3$strat))
+      tmp4 <- expand.grid(time = c(0, unique(sim$time)), surv=NA, lower=NA, upper=NA, 
+                          strat = unique(tmp3$strat))
       tmp4$time_strat <- paste0(tmp4$time, "_", tmp4$strat)
       tmp4[match(tmp3$time_strat, tmp4$time_strat),]$surv <- tmp3$surv
 #       tmp4[match(tmp3$time_strat, tmp4$time_strat),]$lower <- tmp3$lower
@@ -326,9 +350,9 @@ vpc_tte <- function(sim = NULL,
       tmp4$bin_min <- tmp_bins[tmp4$bin]
       tmp4$bin_max <- tmp_bins[tmp4$bin+1]
       tmp4$bin_mid <- (tmp4$bin_min + tmp4$bin_max) / 2
-      all <- rbind(all, cbind(i, tmp4)) ## RK: this can be done more efficient!
+      all_dat <- dplyr::bind_rows(all_dat, cbind(i, tmp4)) ## RK: this can be done more efficient!
     }
-    sim_km <- all %>%
+    sim_km <- all_dat %>%
       dplyr::group_by_("strat", "bin") %>%
       dplyr::summarise (bin_mid = head(bin_mid,1),
                  bin_min = head(bin_min,1),
@@ -341,6 +365,7 @@ vpc_tte <- function(sim = NULL,
                  step = 0)
   } else {
     sim_km <- NULL
+    tmp_bins <- unique(c(0, sort(unique(obs$time)), max(obs$time)))
   }
 
   if (rtte) {
@@ -369,7 +394,7 @@ vpc_tte <- function(sim = NULL,
   }
 
   if (!is.null(stratify_original)) {
-    if (length(stratify) == 2) {
+    if (length(stratify_pars) == 2) {
       if(!is.null(sim_km)) {
         sim_km$strat1 <- unlist(strsplit(as.character(sim_km$strat), ", "))[(1:length(sim_km$strat)*2)-1]
         sim_km$strat2 <- unlist(strsplit(as.character(sim_km$strat), ", "))[(1:length(sim_km$strat)*2)]
@@ -411,14 +436,19 @@ vpc_tte <- function(sim = NULL,
     show$obs_dv <- FALSE
   }
   show$pi <- TRUE
+  if(!is.null(kmmc)) {
+    ylab <- paste0("Mean (", kmmc, ")")
+  }
 
   # plotting starts here
   vpc_db <- list(sim = sim,
                  sim_km = sim_km,
                  obs = obs,
                  obs_km = obs_km,
-                 all = all,
+                 all_dat = all_dat,
+                 stratify_pars = stratify_pars,
                  stratify = stratify,
+                 stratify_color = stratify_color,
                  stratify_original = stratify_original,
                  bins = bins,
                  facet = facet,
@@ -428,24 +458,22 @@ vpc_tte <- function(sim = NULL,
                  rtte = rtte,
                  type = "time-to-event",
                  as_percentage = as_percentage,
-                 tmp_bins = tmp_bins)
+                 tmp_bins = tmp_bins,
+                 xlab = xlab,
+                 ylab = ylab)
   if(is.null(xlab)) {
     xlab <- "Time (days)"
-  }
-  if(is.null(ylab)) {
-    ylab <- ""
   }
   if(vpcdb) {
     return(vpc_db)
   } else {
+    message("\nPlotting.")
     pl <- plot_vpc(vpc_db,
                    show = show,
                    vpc_theme = vpc_theme,
                    smooth = smooth,
                    log_y = FALSE,
-                   title = title,
-                   xlab = xlab,
-                   ylab = ylab)
+                   title = title)
     return(pl)
   }
 }

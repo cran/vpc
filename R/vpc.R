@@ -8,7 +8,7 @@
 #' @param n_bins when using the "auto" binning method, what number of bins to aim for
 #' @param bin_mid either "mean" for the mean of all timepoints (default) or "middle" to use the average of the bin boundaries.
 #' @param obs_cols observation dataset column names (list elements: "dv", "idv", "id", "pred")
-#' @param sim_cols simulation dataset column names (list elements: "dv", "idv", "id", "pred")
+#' @param sim_cols simulation dataset column names (list elements: "dv", "idv", "id", "pred", "sim")
 #' @param show what to show in VPC (obs_dv, obs_ci, pi, pi_as_area, pi_ci, obs_median, sim_median, sim_median_ci)
 #' @param software name of software platform using (e.g. nonmem, phoenix)
 #' @param stratify character vector of stratification variables. Only 1 or 2 stratification variables can be supplied.
@@ -20,8 +20,8 @@
 #' @param lloq Number or NULL indicating lower limit of quantification. Default is NULL.
 #' @param log_y Boolean indicting whether y-axis should be shown as logarithmic. Default is FALSE.
 #' @param log_y_min minimal value when using log_y argument. Default is 1e-3.
-#' @param xlab ylab as numeric vector of size 2
-#' @param ylab ylab as numeric vector of size 2
+#' @param xlab label for x axis
+#' @param ylab label for y axis
 #' @param title title
 #' @param smooth "smooth" the VPC (connect bin midpoints) or show bins as rectangular boxes. Default is TRUE.
 #' @param vpc_theme theme to be used in VPC. Expects list of class vpc_theme created with function vpc_theme()
@@ -156,14 +156,23 @@ vpc <- function(sim = NULL,
       message("Parsing observed data...")
     }
     obs <- filter_dv(obs, verbose)
-    obs <- format_vpc_input_data(obs, cols$obs, lloq, uloq, stratify, bins, log_y, log_y_min, "observed", verbose)
+    obs <- format_vpc_input_data(obs, cols$obs, lloq, uloq, stratify, bins, log_y, log_y_min, "observed", verbose, pred_corr)
   }
   if(!is.null(sim)) {
     if(verbose) {
       message("Parsing simulated data...")
     }
     sim <- filter_dv(sim, verbose)
-    sim <- format_vpc_input_data(sim, cols$sim, NULL, NULL, stratify, bins, log_y, log_y_min, "simulated", verbose)
+    if((!is.null(lloq) || !is.null(uloq)) && pred_corr) {
+      message("Prediction-correction cannot be used together with censored data (<LLOQ or >ULOQ). VPC plot will be shown for non-censored data only!")
+      sim <- format_vpc_input_data(sim, cols$sim, lloq, uloq, stratify, bins, log_y, log_y_min, "simulated", verbose, pred_corr)
+    } else {
+      sim <- format_vpc_input_data(sim, cols$sim, NULL, NULL, stratify, bins, log_y, log_y_min, "simulated", verbose, pred_corr)
+    }
+  }
+  if(pred_corr) {
+    uloq <- NULL
+    lloq <- NULL
   }
 
   labeled_bins <- bins[1] == "percentiles"
@@ -178,17 +187,15 @@ vpc <- function(sim = NULL,
     }
   }
   bins <- unique(bins)
-  if(verbose) {
-    message(paste0("Binning: ", paste(bins, collapse=' ')))
-  }
+  if(verbose) message(paste0("Binning: ", paste(bins, collapse=' ')))
   if(!is.null(obs)) {
     obs <- bin_data(obs, bins, "idv", labeled = labeled_bins)
   }
   if(!is.null(sim)) {
     sim <- bin_data(sim, bins, "idv", labeled = labeled_bins)
   }
-  if (pred_corr) {
-    if (!is.null(obs) & !cols$obs$pred %in% names(obs)) {
+  if(pred_corr) {
+    if(!is.null(obs) & !cols$obs$pred %in% names(obs)) {
       msg("Warning: Prediction-correction: specified pred-variable not found in observation dataset, trying to get from simulated dataset...", verbose)
       if (!cols$obs$pred %in% names(sim)) {
         stop("Error: Prediction-correction: specified pred-variable not found in simulated dataset, not able to perform pred-correction!")
@@ -203,35 +210,29 @@ vpc <- function(sim = NULL,
       }
     }
     if(!is.null(obs)) {
-      obs$pred = obs[[cols$obs$pred]]
+      obs$pred <- obs[[cols$obs$pred]]
     }
     if(!is.null(sim)) {
       sim$pred <- sim[[cols$sim$pred]]
     }
   }
-  if (!is.null(obs)) {
-    if (pred_corr) {
-      if(verbose) {
-          message("Performing prediction-correction on observed data...")
-      }
+  if(!is.null(obs)) {
+    if(pred_corr) {
+      if(verbose) message("Performing prediction-correction on observed data...")
       obs <- obs %>% dplyr::group_by(strat, bin) %>% dplyr::mutate(pred_bin = median(as.num(pred)))
       obs[obs$pred != 0,]$dv <- pred_corr_lower_bnd + (obs[obs$pred != 0,]$dv - pred_corr_lower_bnd) * (obs[obs$pred != 0,]$pred_bin - pred_corr_lower_bnd) / (obs[obs$pred != 0,]$pred - pred_corr_lower_bnd)
     }
   }
-  if (!is.null(sim)) {
-    sim$sim <- add_sim_index_number(sim, id = "id")
-    if (pred_corr) {
-      if(verbose) {
-          message("Performing prediction-correction on simulated data...")
-      }
+  if(!is.null(sim)) {
+    sim$sim <- add_sim_index_number(sim, id = "id", sim_label=sim_cols$sim)
+    if(pred_corr) {
+      if(verbose) message("Performing prediction-correction on simulated data...")
       sim <- sim %>% dplyr::group_by(strat, bin) %>% dplyr::mutate(pred_bin = median(pred))
       sim[sim$pred != 0,]$dv <- pred_corr_lower_bnd + (sim[sim$pred != 0,]$dv - pred_corr_lower_bnd) * (sim[sim$pred != 0,]$pred_bin - pred_corr_lower_bnd) / (sim[sim$pred != 0,]$pred - pred_corr_lower_bnd)
     }
   }
-  if (!is.null(sim)) {
-    if(verbose) {
-      message("Calculating statistics for simulated data...")
-    }
+  if(!is.null(sim)) {
+    if(verbose) message("Calculating statistics for simulated data...")
     tmp1 <- sim %>% dplyr::group_by(strat, sim, bin)
     aggr_sim <- data.frame(cbind(tmp1 %>% dplyr::summarise(quantile(dv, pi[1])),
                                  tmp1 %>% dplyr::summarise(quantile(dv, 0.5 )),
@@ -322,7 +323,9 @@ vpc <- function(sim = NULL,
                  labeller = labeller,
                  lloq = lloq,
                  uloq = uloq,
-                 type = "continuous")
+                 type = "continuous",
+                 xlab = xlab,
+                 ylab = ylab)
   if(vpcdb) {
     return(vpc_db)
   } else {
@@ -331,9 +334,7 @@ vpc <- function(sim = NULL,
                    vpc_theme = vpc_theme,
                    smooth = smooth,
                    log_y = log_y,
-                   title = title,
-                   xlab = xlab,
-                   ylab = ylab)
+                   title = title)
     return(pl)
   }
 }

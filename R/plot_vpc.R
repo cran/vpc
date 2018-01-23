@@ -10,8 +10,8 @@
 #' @param log_x Boolean indicting whether x-axis should be shown as logarithmic. Default is FALSE.
 #' @param log_y Boolean indicting whether y-axis should be shown as logarithmic. Default is FALSE.
 #' @param title title
-#' @param xlab ylab as numeric vector of size 2
-#' @param ylab ylab as numeric vector of size 2
+#' @param xlab label for x axis 
+#' @param ylab label for y axis
 #' @param verbose verbosity (T/F)
 #' @export
 #' @seealso \link{sim_data}, \link{vpc_cens}, \link{vpc_tte}, \link{vpc_cat}
@@ -27,9 +27,9 @@ plot_vpc <- function(db,
                      smooth = TRUE,
                      log_x = FALSE,
                      log_y = FALSE,
+                     xlab = NULL,
+                     ylab = NULL,
                      title = NULL,
-                     xlab = "Time",
-                     ylab = "Dependent value",
                      verbose = FALSE) {
   if(is.null(vpc_theme) || (class(vpc_theme) != "vpc_theme")) {
     vpc_theme <- new_vpc_theme()
@@ -109,7 +109,10 @@ plot_vpc <- function(db,
       if(idv_as_factor) db$aggr_obs$bin_mid <- db$aggr_obs$bin
       if (show$obs_median) {
         pl <- pl +
-          ggplot2::geom_line(data=db$aggr_obs, ggplot2::aes(x=bin_mid, y=obs50), linetype=vpc_theme$obs_median_linetype, colour=vpc_theme$obs_median_color, size=vpc_theme$obs_median_size)
+          ggplot2::geom_line(data=db$aggr_obs, ggplot2::aes(x=bin_mid, y=obs50), 
+                             linetype=vpc_theme$obs_median_linetype, 
+                             colour=vpc_theme$obs_median_color, 
+                             size=vpc_theme$obs_median_size)
       }
       if(show$obs_ci && !is.null(db$aggr_obs[["obs5"]])) {
         pl <- pl +
@@ -123,9 +126,18 @@ plot_vpc <- function(db,
     bdat <- data.frame(cbind(x=db$bins, y=NA))
     if(show$bin_sep && !idv_as_factor) {
       pl <- pl +
-        ggplot2::geom_rug(data=bdat, sides = "t", ggplot2::aes(x = x, y=y), colour=vpc_theme$bin_separators_color)
+        ggplot2::geom_rug(data=bdat, sides = "t", ggplot2::aes(x = x, y = y), colour=vpc_theme$bin_separators_color)
     }
-    pl <- pl + ggplot2::xlab(xlab) + ggplot2::ylab(ylab)
+    if(!is.null(xlab)) {
+      pl <- pl + ggplot2::xlab(xlab)  
+    } else {
+      pl <- pl + ggplot2::xlab(db$xlab)  
+    }
+    if(!is.null(ylab)) {
+      pl <- pl + ggplot2::ylab(ylab)  
+    } else {
+      pl <- pl + ggplot2::ylab(db$ylab)  
+    }
     if (log_x) {
       if(!idv_as_factor) pl <- pl + ggplot2::scale_x_log10()
       else warning("log_x option has no effect when the IDV is a factor ")
@@ -185,42 +197,66 @@ plot_vpc <- function(db,
     ################################################################
 
     show <- replace_list_elements(show_default_tte, show)
-    if(!is.null(db$stratify_original)) {
+    if(!is.null(db$stratify_pars)) {
       ## rename "strat" to original stratification variable names
-      if(length(db$stratify_original) == 1) {
+      if(length(db$stratify_pars) == 1) {
         # "strat1" ==> "rtte"
-        if(!is.null(db$obs_km)) colnames(db$obs_km)[match("strat1", colnames(db$obs_km))] <- db$stratify[1]
-        if(!is.null(db$sim_km)) colnames(db$sim_km)[match("strat1", colnames(db$sim_km))] <- db$stratify[1]
-        if(!is.null(db$all)) colnames(db$all)[match("strat1", colnames(db$all))] <- db$stratify[1]
+        if(!is.null(db$obs_km)) db$obs_km[[db$stratify_pars[1]]] <- as.factor(db$obs_km$strat)
+        if(!is.null(db$sim_km)) db$sim_km[[db$stratify_pars[1]]] <- as.factor(db$sim_km$strat)
+        if(!is.null(db$all_dat)) db$all_dat[[db$stratify_pars[1]]] <- as.factor(db$all_dat$strat)
       }
-      if(length(db$stratify_original) == 2) {
+      if(length(db$stratify_pars) == 2) {
         if(!is.null(db$obs_km)) {
-          colnames(db$obs_km)[match("strat1", colnames(db$obs_km))] <- db$stratify[1]
-          colnames(db$obs_km)[match("strat2", colnames(db$obs_km))] <- db$stratify[2]
+          db$obs_km[[db$stratify_pars[1]]] <- as.factor(db$obs_km$strat1)
+          db$obs_km[[db$stratify_pars[2]]] <- as.factor(db$obs_km$strat2)
         }
         if(!is.null(db$sim_km)) {
-          colnames(db$sim_km)[match("strat1", colnames(db$sim_km))] <- db$stratify[1]
-          colnames(db$sim_km)[match("strat2", colnames(db$sim_km))] <- db$stratify[2]
-        }
-        if(!is.null(db$all)) {
-          colnames(db$all)[match("strat1", colnames(db$all))] <- db$stratify[1]
-          colnames(db$all)[match("strat2", colnames(db$all))] <- db$stratify[2]
+          db$sim_km[[db$stratify_pars[1]]] <- as.factor(db$sim_km$strat1)
+          db$sim_km[[db$stratify_pars[2]]] <- as.factor(db$sim_km$strat2)
         }
       }
     }
-
+    if(!is.null(db$obs_km)) db$obs_km$bin_mid <- c(0, diff(db$obs_km$time))
+    
     show$pi_as_area <- TRUE
-    pl <- ggplot2::ggplot(db$sim_km, ggplot2::aes(x=bin_mid, y=qmed, group=strat))
+    if(!is.null(db$sim_km)) {
+      pl <- ggplot2::ggplot(db$sim_km, ggplot2::aes(x=bin_mid, y=qmed))
+    } else {
+      pl <- ggplot2::ggplot(db$obs_km, ggplot2::aes(x=bin_mid, y=qmed))
+      show$sim_median <- FALSE
+      show$sim_median_ci <- FALSE
+      show$pi_ci <- FALSE
+      show$pi_as_area <- FALSE
+      show$sim_km <- FALSE
+    }
     if(show$sim_km) {
-      db$all$strat_sim <- paste0(db$all$strat, "_", db$all$i)
-      transp <- min(.1, 20*(1/length(unique(db$all$i))))
-      pl <- pl + ggplot2::geom_step(data = db$all, ggplot2::aes(x=bin_mid, y=surv, group=strat_sim), colour=grDevices::rgb(0.2,.53,0.796, transp))
+      db$all_dat$strat_sim <- paste0(db$all_dat$strat, "_", db$all_dat$i)
+      transp <- min(.1, 20*(1/length(unique(db$all_dat$i))))
+      pl <- pl + ggplot2::geom_step(data = db$all_dat, ggplot2::aes(x=bin_mid, y=surv, group=strat_sim), colour=grDevices::rgb(0.2,.53,0.796, transp))
     }
     if(show$pi_as_area) {
       if(smooth) {
-        pl <- pl + ggplot2::geom_ribbon(data = db$sim_km, ggplot2::aes(min = qmin, max=qmax, y=qmed), fill = vpc_theme$sim_median_fill, alpha=vpc_theme$sim_median_alpha)
+        if(!is.null(db$stratify_color)) {
+          pl <- pl + ggplot2::geom_ribbon(data = db$sim_km, 
+                                          ggplot2::aes(min = qmin, max=qmax, y=qmed, fill = get(db$stratify_color[1])), 
+                                          alpha=vpc_theme$sim_median_alpha)
+        } else {
+          pl <- pl + ggplot2::geom_ribbon(data = db$sim_km, 
+                                          ggplot2::aes(min = qmin, max=qmax, y=qmed), 
+                                          fill = vpc_theme$sim_median_fill, 
+                                          alpha=vpc_theme$sim_median_alpha)
+        }
       } else {
-        pl <- pl + ggplot2::geom_rect(data = db$sim_km, ggplot2::aes(xmin=bin_min, xmax=bin_max, ymin=qmin, ymax=qmax), alpha=vpc_theme$sim_median_alpha, fill = vpc_theme$sim_median_fill)
+        if(!is.null(db$stratify_color)) {
+          pl <- pl + ggplot2::geom_rect(data = db$sim_km, 
+                                      ggplot2::aes(xmin=bin_min, xmax=bin_max, ymin=qmin, ymax=qmax, fill = get(db$stratify_color[1])), 
+                                      alpha=vpc_theme$sim_median_alpha)
+        } else {
+          pl <- pl + ggplot2::geom_rect(data = db$sim_km, 
+                                        ggplot2::aes(xmin=bin_min, xmax=bin_max, ymin=qmin, ymax=qmax), 
+                                        alpha=vpc_theme$sim_median_alpha, 
+                                        fill = vpc_theme$sim_median_fill)
+        }
       }
     } else {
       if(!is.null(db$obs)) {
@@ -228,7 +264,8 @@ plot_vpc <- function(db,
       }
     }
     if(!is.null(db$cens_dat) && nrow(db$cens_dat)>0) {
-      pl <- pl + ggplot2::geom_point(data=db$cens_dat, ggplot2::aes(x=time, y=y), shape="|", size=2.5)
+      pl <- pl + ggplot2::geom_point(data=db$cens_dat, 
+                                     ggplot2::aes(x=time, y = y), shape="|", size=2.5)
     }
     if(show$sim_median) {
       if (smooth) {
@@ -239,9 +276,12 @@ plot_vpc <- function(db,
       pl <- pl + geom_line_custom(linetype="dashed")
     }
     if(!is.null(db$obs) && show$obs_ci) {
-      pl <- pl + ggplot2::geom_ribbon(data=db$obs_km, ggplot2::aes(x=time, ymin=lower, ymax=upper, group=strat), fill=vpc_theme$obs_ci_fill)
+      pl <- pl + ggplot2::geom_ribbon(
+        data=db$obs_km, 
+        ggplot2::aes(x=time, ymin=lower, ymax=upper, group=strat), 
+        fill=vpc_theme$obs_ci_fill, colour = NA)
     }
-    if (!is.null(db$obs) && show$obs_dv) {
+    if (!is.null(db$obs)) {
       chk_tbl <- db$obs_km %>%
         dplyr::group_by(strat) %>%
         dplyr::summarise(t = length(time))
@@ -249,58 +289,61 @@ plot_vpc <- function(db,
         geom_step <- ggplot2::geom_line
       }
       msg("Warning: some strata in the observed data had zero or one observations, using line instead of step plot. Consider using less strata (e.g. using the 'events' argument).", verbose)
-      pl <- pl + ggplot2::geom_step(data = db$obs_km, ggplot2::aes(x=time, y=surv, group=strat), size=.8)
+      if(!is.null(db$stratify_color)) {
+        pl <- pl + ggplot2::geom_step(data = db$obs_km, 
+                                      ggplot2::aes(x=time, y=surv, colour=get(db$stratify_color[1])), size=.8)
+      } else {
+        pl <- pl + ggplot2::geom_step(data = db$obs_km, 
+                                      ggplot2::aes(x=time, y=surv, group=strat), size=.8)
+      }
     }
 
-    if(!is.null(db$stratify)) {
+    if(!is.null(db$stratify) || db$rtte) {
       if(is.null(db$labeller)) db$labeller <- ggplot2::label_both
-      if (length(db$stratify_original) == 1 | db$rtte) {
+      if (length(db$stratify_pars) == 1 | db$rtte) {
         if (db$facet == "wrap") {
-          pl <- pl + ggplot2::facet_wrap(stats::reformulate(db$stratify[1], NULL),
+          pl + ggplot2::facet_wrap(~sex)
+          pl <- pl + ggplot2::facet_wrap(stats::reformulate(db$stratify_pars[1], NULL),
                                          labeller = db$labeller)
         } else {
-          if(length(grep("row", db$facet))>0) {
-            pl <- pl + ggplot2::facet_grid(stats::reformulate(db$stratify[1], NULL),
+          if(length(grep("row", db$facet)) > 0) {
+            pl <- pl + ggplot2::facet_grid(stats::reformulate(db$stratify_pars[1], NULL),
                                            labeller = db$labeller)
           } else {
-            pl <- pl + ggplot2::facet_grid(stats::reformulate(".", db$stratify[1]),
+            pl <- pl + ggplot2::facet_grid(stats::reformulate(".", db$stratify_pars[1]),
                                            labeller = db$labeller)
           }
         }
       } else {
-        if(length(grep("row", db$facet))>0) {
-          pl <- pl + ggplot2::facet_grid(stats::reformulate(db$stratify[1], db$stratify[2]),
+        if(length(grep("row", db$facet)) > 0) {
+          pl <- pl + ggplot2::facet_grid(stats::reformulate(db$stratify_pars[1], db$stratify_pars[2]),
                                          labeller = db$labeller)
         } else {
-          pl <- pl + ggplot2::facet_grid(stats::reformulate(db$stratify[2], db$stratify[1]),
+          pl <- pl + ggplot2::facet_grid(stats::reformulate(db$stratify_pars[2], db$stratify_pars[1]),
                                          labeller = db$labeller)
         }
       }
     }
-    if (show$bin_sep) {
+    if(show$bin_sep) {
       if(!(class(db$bins) == "logical" && db$bins == FALSE)) {
         bdat <- data.frame(cbind(x = db$tmp_bins, y = NA))
-        pl <- pl + ggplot2::geom_rug(data=bdat, sides = "t", ggplot2::aes(x = x, y=y, group=NA), colour=vpc_theme$bin_separators_color)
+        pl <- pl + ggplot2::geom_rug(data=bdat, sides = "t", ggplot2::aes(x = x, y = y, group=NA), colour=vpc_theme$bin_separators_color)
       }
     }
-    if(is.null(xlab)) {
-      ylab <- "Time"
+    if(!is.null(db$stratify_color)) {
+      pl <- pl + ggplot2::guides(fill = ggplot2::guide_legend(title=db$stratify_color[1]),
+                                 colour = ggplot2::guide_legend(title=db$stratify_color[1]))
     }
-    if(is.null(ylab)) {
-      if(is.null(db$kmmc)) {
-        if(db$as_percentage && is.null(db$kmmc)) {
-          percent <- seq(from=0, to=100, by=25)
-          pl <- pl +
-            ggplot2::scale_y_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1), labels = percent)
-          ylab <- "Survival (%)"
-        } else {
-          ylab <- "Survival"
-        }
-      } else {
-        ylab <- paste0("Mean (", db$kmmc, ")")
-      }
+    if(!is.null(xlab)) {
+      pl <- pl + ggplot2::xlab(xlab)  
+    } else {
+      pl <- pl + ggplot2::xlab(db$xlab)  
     }
-    # pl <- pl + theme_plain()
+    if(!is.null(ylab)) {
+      pl <- pl + ggplot2::ylab(ylab)  
+    } else {
+      pl <- pl + ggplot2::ylab(db$ylab)  
+    }
     return(pl)
   }
 }
