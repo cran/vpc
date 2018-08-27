@@ -2,19 +2,27 @@
 % Please edit documentation in R/vpc.R
 \name{vpc}
 \alias{vpc}
+\alias{vpc.default}
+\alias{vpc_vpc}
 \title{VPC function}
 \usage{
-vpc(sim = NULL, obs = NULL, psn_folder = NULL, bins = "jenks",
+vpc(sim, ...)
+
+\method{vpc}{default}(sim, ...)
+
+vpc_vpc(sim = NULL, obs = NULL, psn_folder = NULL, bins = "jenks",
   n_bins = "auto", bin_mid = "mean", obs_cols = NULL, sim_cols = NULL,
   software = "auto", show = NULL, stratify = NULL, pred_corr = FALSE,
   pred_corr_lower_bnd = 0, pi = c(0.05, 0.95), ci = c(0.05, 0.95),
   uloq = NULL, lloq = NULL, log_y = FALSE, log_y_min = 0.001,
   xlab = NULL, ylab = NULL, title = NULL, smooth = TRUE,
   vpc_theme = NULL, facet = "wrap", labeller = NULL, vpcdb = FALSE,
-  verbose = FALSE)
+  verbose = FALSE, ...)
 }
 \arguments{
-\item{sim}{a data.frame with observed data, containing the independent and dependent variable, a column indicating the individual, and possibly covariates. E.g. load in from NONMEM using \link{read_table_nm}}
+\item{sim}{this is usually a data.frame with observed data, containing the independent and dependent variable, a column indicating the individual, and possibly covariates. E.g. load in from NONMEM using \link{read_table_nm}.  However it can also be an object like a nlmixr or xpose object}
+
+\item{...}{Other arguments sent to other methods (like xpose or nlmixr);  Note these arguments are not used in the default vpc and are ignored by the default method.}
 
 \item{obs}{a data.frame with observed data, containing the independent and dependent variable, a column indicating the individual, and possibly covariates. E.g. load in from NONMEM using \link{read_table_nm}}
 
@@ -28,7 +36,7 @@ vpc(sim = NULL, obs = NULL, psn_folder = NULL, bins = "jenks",
 
 \item{obs_cols}{observation dataset column names (list elements: "dv", "idv", "id", "pred")}
 
-\item{sim_cols}{simulation dataset column names (list elements: "dv", "idv", "id", "pred")}
+\item{sim_cols}{simulation dataset column names (list elements: "dv", "idv", "id", "pred", "sim")}
 
 \item{software}{name of software platform using (e.g. nonmem, phoenix)}
 

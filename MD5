@@ -1,14 +1,14 @@
-d4a496a2bbd60bb0591e5997a9dc83e8 *DESCRIPTION
+2dd82ac0af4aa2dc02740b76b1e0ee12 *DESCRIPTION
 20b820a588849a9fb40e629dcbd6065b *LICENSE
-365e1fdac8fbe316549a93e4fda446a4 *NAMESPACE
+4abfa836ee4ffedaf28fa69982600edf *NAMESPACE
 34efec5d6f1b3d1b522f70cb8e13b558 *R/add_noise.R
 416452669d955391c8035ea0a28147c7 *R/add_sim_index_number.R
 c9cc7c1b2fa83fd4b7c5c4f8e487a107 *R/add_stratification.R
-03c0346d2260c75ea2149c78d7a9c97d *R/binning.R
+04006fd3b800c486fd9c955135cc1b9a *R/binning.R
 a8e4a9907c93fed5f39b30a0febc5140 *R/check_stratification_columns_available.R
 1077ba680747d0e16e224471755d81d7 *R/compute_kaplan.R
 fa319b9216cb945054308cade1c126eb *R/compute_kmmc.R
-94e339e2a18dac02921750e58d75a73e *R/create_vpc_theme.R
+c15bc2ff99d2a0d748606633da42a847 *R/create_vpc_theme.R
 b5058a46f56b9ed7c253172e522cb6c5 *R/datasets.R
 d0c75d3351edd3d7d8ea8c242c733012 *R/define_data_columns.R
 39658d6b73a76849b0115aca9ee801ad *R/draw_params_mvr.R
@@ -18,7 +18,7 @@ d4fe34d8b5e35943661e4b48274024b9 *R/functions.R
 22a71f7f4d4abd8e2039e352ca947859 *R/guess_software.R
 0150b5ebaa8c04498fb8aeeb905928fb *R/new_vpc_theme.R
 2c27ca8d093a233f4e64a32fb0239111 *R/pk_functions.R
-cdc2eeabf2173486e8a348b8b8c002b4 *R/plot_vpc.R
+4b8eed07b453627f54d2155f51544d8b *R/plot_vpc.R
 5be76ff4b8b63754473c28e5f0b6541b *R/quantile_cens.R
 b5247a1370f3a545b80c005e42b6ae1a *R/read_table_nm.R
 c6cefbb9729ad9018df25eafb87bda96 *R/replace_list_elements.R
@@ -27,7 +27,7 @@ b849073bae6e1ba28696496170de6a86 *R/sim_data.R
 2fc430306c41506e61a2b200edee42ab *R/themes.R
 25c0b96718fe3582c95d61ccae302398 *R/triangle_to_full.R
 4eb39764944804d6e001033390ba8e15 *R/vpc-package.R
-c254bf467183d674e6e6154b91b70d39 *R/vpc.R
+5ea21bb999865fadee223641b202f8f2 *R/vpc.R
 6b0be6d51084e35e3c6111e3488339ec *R/vpc_cat.R
 5d3a142fb2724295c95c668518b10daa *R/vpc_cens.R
 b6bb64f0674450ace3f4a0905eb2dd82 *R/vpc_tte.R
@@ -38,7 +38,7 @@ b6bb64f0674450ace3f4a0905eb2dd82 *R/vpc_tte.R
 b67f41601b54846654590d9a379c0327 *man/add_noise.Rd
 9c92af5e62708f79ab367aa73edee1e9 *man/add_sim_index_number.Rd
 2ec95034c87b530c4ba392991aaf129b *man/add_stratification.Rd
-d2203d44977c06ff887ec1b169797890 *man/auto_bin.Rd
+89edd99c4ee8abd0cf068e01910df810 *man/auto_bin.Rd
 14fa802340e1149c6d6288be75478567 *man/bin_data.Rd
 213252c6bf0d4126399b0c2c13669f43 *man/check_stratification_columns_available.Rd
 9aae3979feac0de22a50421d2950941c *man/compute_kaplan.Rd
@@ -64,7 +64,7 @@ d6b7e178745bf5e47be670d6a7f29d6d *man/simple_data.Rd
 c04ec20be2bc6b892fac2ca9ce9af522 *man/theme_plain.Rd
 f4c5d48475357b644b8bb04320859cdb *man/triangle_to_full.Rd
 b49ab46e311f7252c0f5f5428ae05ee2 *man/vpc-package.Rd
-76f0601dcc2af68ab51f97a6e25ebf40 *man/vpc.Rd
+368350a2f936f08b4318aa4064c8e420 *man/vpc.Rd
 89a0ecdf07d141ad3f034a7f824ccc54 *man/vpc_cat.Rd
 28e6c7aff9e0eacd359938c85f59f165 *man/vpc_cens.Rd
 cfd742ddd35577f53c6e3781b24863c4 *man/vpc_tte.Rd
