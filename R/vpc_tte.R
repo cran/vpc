@@ -14,6 +14,7 @@
 #' @param show what to show in VPC (obs_ci, obs_median, sim_median, sim_median_ci)
 #' @param rtte repeated time-to-event data? Default is FALSE (treat as single-event TTE)
 #' @param rtte_calc_diff recalculate time (T/F)? When simulating in NONMEM, you will probably need to set this to TRUE to recalculate the TIME to relative times between events (unless you output the time difference between events and specify that as independent variable to the vpc_tte() function.
+#' @param rtte_conditional `TRUE` (default) or `FALSE`. Compute the probability for each event newly (`TRUE`), or calculate the absolute probability (`FALSE`, i.e. the "probability of a 1st, 2nd, 3rd event etc" rather than the "probability of an event happening").
 #' @param kmmc either NULL (for regular TTE vpc, default), or a variable name for a KMMC plot (e.g. "WT")
 #' @param events numeric vector describing which events to show a VPC for when repeated TTE data, e.g. c(1:4). Default is NULL, which shows all events.
 #' @param reverse_prob reverse the probability scale (i.e. plot 1-probability)
@@ -54,6 +55,7 @@ vpc_tte <- function(sim = NULL,
                     psn_folder = NULL,
                     rtte = FALSE,
                     rtte_calc_diff = TRUE,
+                    rtte_conditional = TRUE,
                     events = NULL,
                     bins = FALSE,
                     n_bins = 10,
@@ -211,7 +213,7 @@ vpc_tte <- function(sim = NULL,
       }
       obs <- obs %>%
         dplyr::group_by_("id") %>%
-        dplyr::arrange_("id", "time") %>%
+        dplyr::arrange_("id", "t") %>%
         dplyr::mutate(rtte = 1:length(dv))
 #       obs %>% dplyr::group_by(id) %>% dplyr::mutate(rtte = cumsum(dv != 0))
 #       obs[obs$dv == 0,]$rtte <- obs[obs$dv == 0,]$rtte + 1 # these censored points actually "belong" to the next rtte strata
@@ -234,16 +236,16 @@ vpc_tte <- function(sim = NULL,
         if(length(ci) == 2 && (round(ci[1],3) != round((1-ci[2]),3))) {
           stop("Sorry, only symmetric confidence intervals can be computed. Please adjust the ci argument.")
         }
-        obs_km <- compute_kaplan(obs, strat = "strat", reverse_prob = reverse_prob, ci = ci)
+        obs_km <- compute_kaplan(obs, strat = "strat", reverse_prob = reverse_prob, rtte_conditional = rtte_conditional, ci = ci)
       } else {
-        obs_km <- compute_kaplan(obs, strat = "strat", reverse_prob = reverse_prob)
+        obs_km <- compute_kaplan(obs, strat = "strat", reverse_prob = reverse_prob, rtte_conditional = rtte_conditional)
       }
     }
   } else { # get bins from sim
     obs_km <- NULL
   }
   if(!is.null(kmmc) & (class(bins) == "logical" && bins == FALSE)) {
-    msg("Tip: with KMMC-type plots, binning of simulated data is recommended. See documentation for the 'bins' argument for more information.", msg)
+    msg("Tip: with KMMC-type plots, binning of simulated data is recommended. See documentation for the 'bins' argument for more information.", verbose)
   }
 
   all_dat <- c()
@@ -259,10 +261,10 @@ vpc_tte <- function(sim = NULL,
     if(max(sim$dv) > 2) { # guessing DV definition if not just 0/1
       if(max(sim$dv) == 2) { # common approach in NONMEM, 2 = censored
         sim[sim$dv != 1,]$dv <- 1
-        msg("Warning: Expected simulated dependent variable to contain only 0 (censored, or no event simerved) or 1 (event simerved). Setting all simulated observations != 1 to 0.", msg)
+        msg("Warning: Expected simulated dependent variable to contain only 0 (censored, or no event simerved) or 1 (event simerved). Setting all simulated observations != 1 to 0.", verbose)
       } else {
         sim[sim$dv != 1,]$dv <- 1 # some people use DV to indicate the event time.
-        msg("Warning: Expected simulated dependent variable to contain only 0 (censored, or no event simerved) or 1 (event simerved). Setting all simulated observations != 1 to 1.", msg)
+        msg("Warning: Expected simulated dependent variable to contain only 0 (censored, or no event simerved) or 1 (event simerved). Setting all simulated observations != 1 to 1.", verbose)
       }
     }
     if("nonmem" %in% class(sim)) { # necessary due to a bug in NONMEM simulation
@@ -304,6 +306,9 @@ vpc_tte <- function(sim = NULL,
 
     tmp_bins <- unique(c(0, sort(unique(sim$time)), max(sim$time)))
     n_sim <- length(unique(sim$sim))
+    if(n_sim <= 1) {
+      stop(paste0("Something seems wrong with your simulation dataset, only ", n_sim, " iterations of the simulation were identified."))
+    }
     all_dat <- c()
     if(!(class(bins) == "logical" && bins == FALSE)) {
       if(class(bins) == "logical" && bins == TRUE) {
@@ -333,7 +338,7 @@ vpc_tte <- function(sim = NULL,
       if(!is.null(kmmc) && kmmc %in% names(obs)) {
         tmp3 <- compute_kmmc(tmp2, strat = "strat", reverse_prob = reverse_prob, kmmc = kmmc)
       } else {
-        tmp3 <- compute_kaplan(tmp2, strat = "strat", reverse_prob = reverse_prob)
+        tmp3 <- compute_kaplan(tmp2, strat = "strat", reverse_prob = reverse_prob, rtte_conditional = rtte_conditional)
       }
       tmp3$time_strat <- paste0(tmp3$time, "_", tmp3$strat)
       tmp4 <- expand.grid(time = c(0, unique(sim$time)), surv=NA, lower=NA, upper=NA, 
@@ -389,8 +394,16 @@ vpc_tte <- function(sim = NULL,
   }
 
   cens_dat <- NULL
-  if(show$obs_cens) {
-    cens_dat <- data.frame(obs[obs$dv == 0 & obs$time > 0,])
+  if(show$obs_cens && !is.null(obs)) {
+    cens_dat <- obs
+    if(rtte) {
+      if(!rtte_conditional || !rtte_calc_diff) {
+        cens_dat <- cens_dat %>% 
+          dplyr::mutate(time = t)
+      }
+    }
+    cens_dat <- cens_dat %>%
+      dplyr::filter(dv == 0, time > 0)
   }
 
   if (!is.null(stratify_original)) {
@@ -416,7 +429,7 @@ vpc_tte <- function(sim = NULL,
         cens_dat$y <- 1
         cens_dat$strat1 <- NA
         cens_dat$strat2 <- NA
-        for (j in 1:length(cens_dat[,1])) {
+        for (j in 1:nrow(cens_dat[,1])) {
           tmp <- obs_km[as.character(obs_km$strat) == as.character(cens_dat$strat[j]),]
           cens_dat$y[j] <- rev(tmp$surv[(cens_dat$time[j] - tmp$time) > 0])[1]
           if ("strat1" %in% names(tmp)) {
