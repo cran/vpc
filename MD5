@@ -1,7 +1,7 @@
-4799837d68451b73cb35128dc3114153 *DESCRIPTION
+7a6ba2d4b14b30caef0372dd697ef8b3 *DESCRIPTION
 20b820a588849a9fb40e629dcbd6065b *LICENSE
 c88f865133e6b2cdba06306a0a7eae3b *NAMESPACE
-d752592cf1fab8046bcd53b3ec41279e *NEWS.md
+7a75b2f18f465b2e2504168031c79b41 *NEWS.md
 34efec5d6f1b3d1b522f70cb8e13b558 *R/add_noise.R
 416452669d955391c8035ea0a28147c7 *R/add_sim_index_number.R
 1f377cb1c9ec39849406692f88f675d4 *R/add_stratification.R
@@ -19,7 +19,7 @@ d4fe34d8b5e35943661e4b48274024b9 *R/functions.R
 22a71f7f4d4abd8e2039e352ca947859 *R/guess_software.R
 0150b5ebaa8c04498fb8aeeb905928fb *R/new_vpc_theme.R
 2c27ca8d093a233f4e64a32fb0239111 *R/pk_functions.R
-175b9ce0e150b1e36b095d00f02cf251 *R/plot_vpc.R
+be1bd51d25ee82cb17fb5239f487d54c *R/plot_vpc.R
 7543c9fdc2087de5488c4eaf668fcf5b *R/quantile_cens.R
 b5247a1370f3a545b80c005e42b6ae1a *R/read_table_nm.R
 c6cefbb9729ad9018df25eafb87bda96 *R/replace_list_elements.R
@@ -29,8 +29,8 @@ c6cefbb9729ad9018df25eafb87bda96 *R/replace_list_elements.R
 25c0b96718fe3582c95d61ccae302398 *R/triangle_to_full.R
 4eb39764944804d6e001033390ba8e15 *R/vpc-package.R
 53b3637f17badc284b947f19321548c3 *R/vpc.R
-6b0be6d51084e35e3c6111e3488339ec *R/vpc_cat.R
-d183b04cbaac96c03f5f5a2a889e06c3 *R/vpc_cens.R
+ae1325c126ea49af1d9af0033151cfb3 *R/vpc_cat.R
+3ef3f24fae9e6e032497125837963e88 *R/vpc_cens.R
 dde80fba04a2cd22ec648cb7320ed6e4 *R/vpc_tte.R
 177a6365188fe0937a6f84846e361424 *R/zzz.R
 0bf8bf2f65093f5fcb460302031309d1 *data/rtte_obs_nm.rda
@@ -75,6 +75,6 @@ a7be1b31c88d08b23ee66246161e0ee0 *tests/test-filter_dv.R
 3323297c1d99e733f7a8fe53562a1431 *tests/test-softwaretype.R
 fbf4f42df0c4b5852a26bbf01605c8bd *tests/test-strat-col-detection.R
 3c895dff9747b4415ef50bda5e8f83ec *tests/test-vpc.R
-b9347b4e9f7973057a66f56c592f922c *tests/test-vpc_cat.R
-00fb1e59d1413eea60043d34252e8329 *tests/test-vpc_cens.R
+c747630bad92ca45bb6db507c8ff6cd5 *tests/test-vpc_cat.R
+02fbe5b475172751217373a17b745fcc *tests/test-vpc_cens.R
 bc8806751ef00603f2382718d8cca7e1 *tests/test-vpc_tte.R
